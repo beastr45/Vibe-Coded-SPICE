@@ -1,0 +1,7 @@
+.cache/
+.config/
+.local/
+.code-server/
+.vscode/
+.ignore
+lost+found/

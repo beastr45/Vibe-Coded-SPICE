@@ -1,0 +1,15 @@
+Controlled source demo
+V1 in 0 SIN(0 1 1k)
+R1 in 0 1k
+R2 outg 0 1k
+G1 outg 0 in 0 1m
+R3 oute 0 1k
+E1 oute 0 in 0 2
+R4 outf 0 1k
+F1 outf 0 V1 2
+R5 outh 0 1k
+H1 outh 0 V1 500
+.op
+.ac dec 20 10 100000
+.tran 100u 5m
+.end

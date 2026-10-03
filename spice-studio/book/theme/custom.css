@@ -1,0 +1,21 @@
+body {
+  --callout-bg: #142030;
+}
+
+.callout,
+.interactive-box {
+  border: 1px solid #375a7f;
+  border-radius: 10px;
+  padding: 1rem;
+  margin: 1rem 0;
+  background: #132030;
+}
+
+.interactive-box label {
+  display: block;
+  margin: 0.5rem 0;
+}
+
+.interactive-box input {
+  margin-left: 0.5rem;
+}

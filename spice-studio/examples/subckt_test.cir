@@ -1,0 +1,9 @@
+Subckt
+.subckt DIV in mid out
+R1 in mid 10k
+R2 mid out 10k
+.ends
+V1 vin 0 DC 10
+X1 vin vout 0 DIV
+.op
+.end

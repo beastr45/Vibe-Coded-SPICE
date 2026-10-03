@@ -1,0 +1,12 @@
+{
+  "files.exclude": {
+    "**/.git": true,
+    ".cache": true,
+    ".config": true,
+    ".local": true,
+    ".code-server": true,
+    ".vscode": true,
+    ".ignore": true,
+    "lost+found": true
+  }
+}

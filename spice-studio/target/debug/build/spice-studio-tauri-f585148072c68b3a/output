@@ -1,0 +1,12 @@
+cargo:rerun-if-env-changed=TAURI_CONFIG
+cargo:rustc-check-cfg=cfg(desktop)
+cargo:rustc-cfg=desktop
+cargo:rustc-check-cfg=cfg(mobile)
+cargo:rerun-if-changed=/workspace/spice-studio/apps/spice-studio/src-tauri/tauri.conf.json
+cargo:rustc-env=TAURI_ANDROID_PACKAGE_NAME_APP_NAME=spicestudio
+cargo:rustc-env=TAURI_ANDROID_PACKAGE_NAME_PREFIX=com_example
+cargo:rustc-check-cfg=cfg(dev)
+cargo:PERMISSION_FILES_PATH=/workspace/spice-studio/target/debug/build/spice-studio-tauri-f585148072c68b3a/out/app-manifest/__app__-permission-files
+cargo:rerun-if-changed=/workspace/spice-studio/apps/spice-studio/src-tauri/capabilities
+cargo:rerun-if-env-changed=REMOVE_UNUSED_COMMANDS
+cargo:rustc-env=TAURI_ENV_TARGET_TRIPLE=x86_64-unknown-linux-gnu

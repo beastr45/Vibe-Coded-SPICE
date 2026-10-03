@@ -1,0 +1,1 @@
+/workspace/spice-studio/target/debug/spice-cli: /workspace/spice-studio/crates/spice-cli/src/main.rs /workspace/spice-studio/crates/spice-core/src/lib.rs /workspace/spice-studio/crates/spice-core/src/netlist.rs /workspace/spice-studio/crates/spice-core/src/schematic.rs /workspace/spice-studio/crates/spice-core/src/simulator.rs

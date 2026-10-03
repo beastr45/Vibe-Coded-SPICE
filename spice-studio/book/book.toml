@@ -1,0 +1,12 @@
+[book]
+authors = ["Grail"]
+language = "en"
+multilingual = false
+src = "src"
+title = "Build Your Own Rust SPICE Simulator"
+
+[output.html]
+default-theme = "navy"
+git-repository-url = "https://example.invalid/spice-studio"
+additional-css = ["theme/custom.css"]
+additional-js = ["theme/interactive.js"]

@@ -1,0 +1,9 @@
+# Project Architecture
+
+The repository is split into four layers. The simulation heart is `crates/spice-core`, which holds the netlist data model, engineering-notation parser, MNA system assembly, diode linearization, and domain-specific analysis drivers. The second layer is `crates/spice-cli`, which exposes the solver through a command line so the engine can be used in batch workflows, regression tests, or larger automation pipelines. The third layer is `apps/spice-studio`, a Tauri desktop shell that uses a web frontend for schematic editing but calls Rust commands for simulation and project export. The final layer is this `mdBook`, which explains the theory and the exact code structure chapter by chapter.
+
+The engine keeps parser concerns separate from numerical concerns. `parse_netlist` in `crates/spice-core/src/netlist.rs` turns text into strongly typed `Element` and `Analysis` values. `simulate` in `crates/spice-core/src/simulator.rs` then dispatches to operating-point, DC sweep, AC, or transient solvers. That separation matters: once you treat the circuit description as data, you can feed it from a CLI, GUI, generator, test fixture, or remote service without rewriting the numeric layer.
+
+As the project grows, that separation pays off even more. In the current phase, the parser now also performs hierarchical `.subckt` expansion before numeric assembly, and the solver understands controlled sources such as VCCS and VCVS. Neither addition required rewriting the GUI or CLI because both clients already talk to the same core netlist and simulation API.
+
+Another deliberate choice is that the desktop application stores schematics as vector SVG plus an accompanying SPICE netlist and a tiny manifest. This gives the project an open, inspectable storage format. A user can render the drawing anywhere an SVG is supported while also keeping a simulator-readable source-of-truth netlist.

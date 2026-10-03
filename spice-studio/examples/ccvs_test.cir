@@ -1,0 +1,7 @@
+CCVS
+V1 in 0 DC 5
+R1 in 0 1k
+R2 out 0 1k
+H1 out 0 V1 500
+.op
+.end

@@ -1,0 +1,8 @@
+RC low-pass filter
+V1 in 0 DC 0 AC 1 SIN(0 1 1000)
+R1 in out 1k
+C1 out 0 1u
+.op
+.ac dec 20 10 100000
+.tran 100u 10m
+.end

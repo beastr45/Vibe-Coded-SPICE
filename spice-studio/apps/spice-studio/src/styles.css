@@ -1,0 +1,359 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #0f1218;
+  color: #f3f7ff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #0f1218;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+.window-shell {
+  height: 100vh;
+  display: grid;
+  grid-template-rows: 52px 1fr;
+}
+
+.titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  background: linear-gradient(180deg, #1e2631, #171d26);
+  border-bottom: 1px solid #253140;
+}
+
+.title {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.title-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.title-actions button,
+.palette-item {
+  border: 1px solid #304258;
+  background: #1b2531;
+  color: #eff6ff;
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.title-actions button:hover,
+.palette-item:hover,
+.palette-item.active {
+  background: #243345;
+}
+
+.workspace-grid {
+  display: grid;
+  grid-template-columns: 220px 1fr 300px;
+  grid-template-rows: 1fr 260px;
+  gap: 10px;
+  padding: 10px;
+}
+
+.panel {
+  background: #141b24;
+  border: 1px solid #253140;
+  border-radius: 12px;
+  padding: 12px;
+  overflow: hidden;
+}
+
+.palette {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hint {
+  color: #95a8c0;
+  font-size: 0.9rem;
+}
+
+.nudge-box {
+  margin-top: 8px;
+  border-top: 1px solid #2a384a;
+  padding-top: 8px;
+}
+
+.wire-box {
+  margin-top: 10px;
+  border-top: 1px solid #2a384a;
+  padding-top: 8px;
+}
+
+.wire-box label,
+.template-box {
+  display: grid;
+  gap: 6px;
+}
+
+.wire-box input {
+  background: #0d1218;
+  border: 1px solid #2a384a;
+  border-radius: 8px;
+  color: #eef4ff;
+  padding: 8px 10px;
+}
+
+.nudge-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.nudge-grid button,
+.danger {
+  border: 1px solid #304258;
+  background: #1b2531;
+  color: #eff6ff;
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.danger {
+  width: 100%;
+  background: #422029;
+}
+
+.canvas-panel {
+  display: grid;
+  grid-template-rows: 40px 1fr;
+}
+
+.canvas-toolbar {
+  display: flex;
+  align-items: center;
+  color: #a4b7cf;
+}
+
+.schematic-canvas {
+  width: 100%;
+  height: 100%;
+  border-radius: 8px;
+  background: #11161d;
+}
+
+.symbol {
+  stroke: #e8eefc;
+  fill: none;
+  cursor: pointer;
+}
+
+.symbol.selected {
+  stroke: #72d2ff;
+}
+
+.symbol text {
+  fill: #f7fbff;
+  stroke: none;
+  font-size: 16px;
+}
+
+.symbol-value {
+  fill: #8df3a5 !important;
+}
+
+.control-source-ring {
+  stroke: #ffcf6e;
+  fill: none;
+  stroke-width: 2;
+}
+
+.wire-group {
+  cursor: pointer;
+}
+
+.selected-wire polyline {
+  stroke: #ffcf6e;
+}
+
+.wire-label {
+  fill: #7bd3ff;
+  font-size: 12px;
+  stroke: none;
+}
+
+.inspector {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.form-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.form-grid label {
+  display: grid;
+  gap: 4px;
+  font-size: 0.9rem;
+  color: #c5d2e6;
+}
+
+.form-grid input,
+.netlist-panel textarea {
+  background: #0d1218;
+  border: 1px solid #2a384a;
+  border-radius: 8px;
+  color: #eef4ff;
+  padding: 8px 10px;
+}
+
+.inferred-box {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border: 1px solid #2a384a;
+  border-radius: 8px;
+  background: #101722;
+  color: #bcd0e8;
+}
+
+.netlist-panel textarea,
+.waveform-panel pre {
+  width: 100%;
+  height: calc(100% - 40px);
+  resize: none;
+  overflow: auto;
+}
+
+.status {
+  margin-bottom: 8px;
+  color: #89ffa0;
+}
+
+.toolbar-note {
+  margin-left: 16px;
+  color: #ffcf6e;
+}
+
+.chart-block {
+  margin-bottom: 12px;
+}
+
+.trace-selector {
+  margin-bottom: 10px;
+}
+
+.trace-selector h3 {
+  margin: 0 0 6px;
+  font-size: 0.9rem;
+}
+
+.trace-chips,
+.template-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.trace-chip,
+.template-buttons button {
+  border: 1px solid #304258;
+  background: #1b2531;
+  color: #eff6ff;
+  border-radius: 999px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.trace-chip.active {
+  background: #27405a;
+}
+
+.chart-block h3 {
+  margin: 0 0 6px;
+  font-size: 0.95rem;
+}
+
+.chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.wave-chart {
+  width: 100%;
+  height: 180px;
+  display: block;
+  cursor: crosshair;
+}
+
+.chart-help {
+  margin: 6px 0;
+  color: #95a8c0;
+  font-size: 0.8rem;
+}
+
+.cursor-line {
+  stroke: #ffcf6e;
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+}
+
+.cursor-a-line {
+  stroke: #ffcf6e;
+}
+
+.cursor-b-line {
+  stroke: #ff8fa3;
+}
+
+.cursor-readout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin: 8px 0;
+  padding: 8px 10px;
+  border: 1px solid #2a384a;
+  border-radius: 8px;
+  background: #101722;
+  font-size: 0.85rem;
+}
+
+.cursor-series {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.legend {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+  margin: 6px 0 10px;
+}
+
+.waveform-panel pre {
+  background: #0d1218;
+  border: 1px solid #2a384a;
+  border-radius: 8px;
+  padding: 12px;
+  color: #dfeaf9;
+}
