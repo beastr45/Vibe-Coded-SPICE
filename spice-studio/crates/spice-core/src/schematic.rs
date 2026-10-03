@@ -58,6 +58,7 @@ impl Default for SchematicDocument {
 }
 
 impl SchematicDocument {
+    /// Render the lightweight schematic model into an SVG document.
     pub fn to_svg(&self) -> String {
         let mut svg = format!(
             r##"<svg xmlns="http://www.w3.org/2000/svg" width="{}" height="{}" viewBox="0 0 {} {}" data-grid="{}">"##,

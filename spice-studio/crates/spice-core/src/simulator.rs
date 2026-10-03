@@ -10,6 +10,7 @@ use crate::netlist::{AcSweep, Analysis, Circuit, DiodeModel, Element, MosModel, 
 const GMIN: f64 = 1e-12;
 const THERMAL_VOLTAGE: f64 = 0.025_852;
 
+/// Solver tolerances and iteration limits shared by every analysis.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SimulationConfig {
     pub max_iters: usize,
@@ -27,6 +28,7 @@ impl Default for SimulationConfig {
     }
 }
 
+/// Top-level simulation payload returned to the CLI and GUI frontends.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SimulationResult {
     pub title: String,
@@ -85,12 +87,8 @@ impl NodeIndex {
                 Element::Resistor { a, b, .. }
                 | Element::Capacitor { a, b, .. }
                 | Element::Inductor { a, b, .. } => {
-                    if !is_ground(a) {
-                        names.insert(a.clone());
-                    }
-                    if !is_ground(b) {
-                        names.insert(b.clone());
-                    }
+                    insert_if_not_ground(&mut names, a);
+                    insert_if_not_ground(&mut names, b);
                 }
                 Element::VoltageSource {
                     positive, negative, ..
@@ -104,22 +102,14 @@ impl NodeIndex {
                 | Element::Ccvs {
                     positive, negative, ..
                 } => {
-                    if !is_ground(positive) {
-                        names.insert(positive.clone());
-                    }
-                    if !is_ground(negative) {
-                        names.insert(negative.clone());
-                    }
+                    insert_if_not_ground(&mut names, positive);
+                    insert_if_not_ground(&mut names, negative);
                 }
                 Element::Diode {
                     anode, cathode, ..
                 } => {
-                    if !is_ground(anode) {
-                        names.insert(anode.clone());
-                    }
-                    if !is_ground(cathode) {
-                        names.insert(cathode.clone());
-                    }
+                    insert_if_not_ground(&mut names, anode);
+                    insert_if_not_ground(&mut names, cathode);
                 }
                 Element::Mosfet {
                     drain,
@@ -129,9 +119,7 @@ impl NodeIndex {
                     ..
                 } => {
                     for node in [drain, gate, source, body] {
-                        if !is_ground(node) {
-                            names.insert(node.clone());
-                        }
+                        insert_if_not_ground(&mut names, node);
                     }
                 }
                 Element::Vccs {
@@ -141,18 +129,10 @@ impl NodeIndex {
                     control_negative,
                     ..
                 } => {
-                    if !is_ground(positive) {
-                        names.insert(positive.clone());
-                    }
-                    if !is_ground(negative) {
-                        names.insert(negative.clone());
-                    }
-                    if !is_ground(control_positive) {
-                        names.insert(control_positive.clone());
-                    }
-                    if !is_ground(control_negative) {
-                        names.insert(control_negative.clone());
-                    }
+                    insert_if_not_ground(&mut names, positive);
+                    insert_if_not_ground(&mut names, negative);
+                    insert_if_not_ground(&mut names, control_positive);
+                    insert_if_not_ground(&mut names, control_negative);
                 }
                 Element::Vcvs {
                     positive,
@@ -161,18 +141,10 @@ impl NodeIndex {
                     control_negative,
                     ..
                 } => {
-                    if !is_ground(positive) {
-                        names.insert(positive.clone());
-                    }
-                    if !is_ground(negative) {
-                        names.insert(negative.clone());
-                    }
-                    if !is_ground(control_positive) {
-                        names.insert(control_positive.clone());
-                    }
-                    if !is_ground(control_negative) {
-                        names.insert(control_negative.clone());
-                    }
+                    insert_if_not_ground(&mut names, positive);
+                    insert_if_not_ground(&mut names, negative);
+                    insert_if_not_ground(&mut names, control_positive);
+                    insert_if_not_ground(&mut names, control_negative);
                 }
             }
         }
@@ -198,6 +170,7 @@ impl NodeIndex {
 struct ExtraVarIndex {
     names: Vec<String>,
     lookup: HashMap<String, usize>,
+    control_branch_lookup: HashMap<String, usize>,
 }
 
 impl ExtraVarIndex {
@@ -206,8 +179,17 @@ impl ExtraVarIndex {
             .iter()
             .enumerate()
             .map(|(idx, name)| (name.clone(), idx))
-            .collect();
-        Self { names, lookup }
+            .collect::<HashMap<_, _>>();
+        let control_branch_lookup = names
+            .iter()
+            .enumerate()
+            .map(|(idx, name)| (normalized_branch_key(name), idx))
+            .collect::<HashMap<_, _>>();
+        Self {
+            names,
+            lookup,
+            control_branch_lookup,
+        }
     }
 
     fn absolute(&self, nodes: usize, name: &str) -> Option<usize> {
@@ -232,6 +214,7 @@ enum Domain {
     Transient { dt: f64 },
 }
 
+/// Run every requested analysis in the netlist and return serializable results.
 pub fn simulate(netlist: &Netlist, config: &SimulationConfig) -> Result<SimulationResult> {
     let mut outputs = Vec::new();
     let mut dc_overrides = HashMap::new();
@@ -240,16 +223,14 @@ pub fn simulate(netlist: &Netlist, config: &SimulationConfig) -> Result<Simulati
     for analysis in &netlist.analyses {
         let output = match analysis {
             Analysis::OperatingPoint => {
-                let solution = solve_operating_point(
+                let (variables, solution_vector) = solve_operating_point(
                     &netlist.circuit,
                     config,
                     &dc_overrides,
                     last_solution.as_deref(),
                 )?;
-                last_solution = Some(solution.1.clone());
-                AnalysisOutput::OperatingPoint(OperatingPoint {
-                    variables: solution.0,
-                })
+                last_solution = Some(solution_vector);
+                AnalysisOutput::OperatingPoint(OperatingPoint { variables })
             }
             Analysis::DcSweep {
                 source_name,
@@ -266,16 +247,16 @@ pub fn simulate(netlist: &Netlist, config: &SimulationConfig) -> Result<Simulati
                     value >= *stop - 1e-18
                 } {
                     dc_overrides.insert(source_name.clone(), value);
-                    let solution = solve_operating_point(
+                    let (variables, solution_vector) = solve_operating_point(
                         &netlist.circuit,
                         config,
                         &dc_overrides,
                         guess.as_deref(),
                     )?;
-                    guess = Some(solution.1.clone());
+                    guess = Some(solution_vector);
                     points.push(SweepPoint {
                         swept_value: value,
-                        variables: solution.0,
+                        variables,
                     });
                     value += *step;
                 }
@@ -317,6 +298,12 @@ pub fn simulate(netlist: &Netlist, config: &SimulationConfig) -> Result<Simulati
         title: netlist.title.clone(),
         analyses: outputs,
     })
+}
+
+fn insert_if_not_ground(names: &mut BTreeSet<String>, node: &str) {
+    if !is_ground(node) {
+        names.insert(node.to_string());
+    }
 }
 
 fn solve_operating_point(
@@ -365,7 +352,7 @@ fn run_transient_analysis(
 
     let (_, op_solution) = solve_operating_point(circuit, config, dc_overrides, None)?;
     let mut guess = if op_solution.len() == size {
-        op_solution.clone()
+        op_solution
     } else {
         vec![0.0; size]
     };
@@ -386,11 +373,11 @@ fn run_transient_analysis(
             config,
             &mut guess,
         )?;
-        guess = solution.clone();
-        state = update_dynamic_state(circuit, &nodes, &extras, &solution);
+        guess = solution;
+        state = update_dynamic_state(circuit, &nodes, &extras, &guess);
         if current_time >= start - 1e-18 {
             time.push(current_time);
-            append_real_traces(&mut traces, circuit, &nodes, &extras, &solution);
+            append_real_traces(&mut traces, &nodes, &extras, &guess);
         }
         if current_time >= stop - 1e-18 {
             break;
@@ -484,10 +471,9 @@ fn normalized_branch_key(name: &str) -> String {
 fn lookup_control_branch_index(extras: &ExtraVarIndex, nodes_len: usize, control_source: &str) -> Option<usize> {
     let target = normalized_branch_key(control_source);
     extras
-        .names
-        .iter()
-        .find(|name| normalized_branch_key(name) == target)
-        .and_then(|name| extras.absolute(nodes_len, name))
+        .control_branch_lookup
+        .get(&target)
+        .map(|index| nodes_len + index)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -509,9 +495,9 @@ fn solve_nonlinear_real(
             let delta = (new - old).abs();
             delta <= config.abs_tol + config.rel_tol * new.abs().max(old.abs())
         });
-        *guess = next.clone();
+        *guess = next;
         if converged {
-            return Ok(next);
+            return Ok(std::mem::take(guess));
         }
     }
     Err(anyhow!("nonlinear solver failed to converge"))
@@ -1184,21 +1170,29 @@ fn collect_real_variables(
     }
     for name in &extras.names {
         let idx = extras.absolute(nodes.len(), name).unwrap_or_default();
-        out.insert(name.clone(), solution.get(idx).copied().unwrap_or_default());
+        out.insert(name.to_owned(), solution.get(idx).copied().unwrap_or_default());
     }
     out
 }
 
 fn append_real_traces(
     traces: &mut BTreeMap<String, Vec<f64>>,
-    circuit: &Circuit,
     nodes: &NodeIndex,
     extras: &ExtraVarIndex,
     solution: &[f64],
 ) {
-    let vars = collect_real_variables(circuit, nodes, extras, solution);
-    for (key, value) in vars {
-        traces.entry(key).or_default().push(value);
+    for name in &nodes.names {
+        let idx = nodes.index_of(name).unwrap_or_default();
+        let value = solution.get(idx).copied().unwrap_or_default();
+        traces
+            .entry(format!("V({name})"))
+            .or_default()
+            .push(value);
+    }
+    for name in &extras.names {
+        let idx = extras.absolute(nodes.len(), name).unwrap_or_default();
+        let value = solution.get(idx).copied().unwrap_or_default();
+        traces.entry(name.to_owned()).or_default().push(value);
     }
 }
 
@@ -1222,9 +1216,9 @@ fn append_ac_traces(
     for name in &extras.names {
         let idx = extras.absolute(nodes.len(), name).unwrap_or_default();
         let value = solution.get(idx).copied().unwrap_or_default();
-        magnitude.entry(name.clone()).or_default().push(value.norm());
+        magnitude.entry(name.to_owned()).or_default().push(value.norm());
         phase_deg
-            .entry(name.clone())
+            .entry(name.to_owned())
             .or_default()
             .push(value.arg().to_degrees());
     }

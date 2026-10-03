@@ -17,9 +17,10 @@ fn run_simulation(netlist: String) -> Result<spice_core::SimulationResult, Strin
     simulate(&parsed, &SimulationConfig::default()).map_err(|error| error.to_string())
 }
 
+/// Persist the inferred SVG, generated netlist, and lightweight manifest side by side.
 #[tauri::command]
 fn save_project_bundle(project_name: String, svg: String, netlist: String) -> Result<SaveResult, String> {
-    let output_dir = PathBuf::from("/workspace/spice-studio/output").join(&project_name);
+    let output_dir = workspace_output_dir().join(&project_name);
     fs::create_dir_all(&output_dir).map_err(|error| error.to_string())?;
     let spice_path = output_dir.join(format!("{project_name}.cir"));
     let svg_path = output_dir.join(format!("{project_name}.svg"));
@@ -45,6 +46,12 @@ fn save_project_bundle(project_name: String, svg: String, netlist: String) -> Re
         spice_path: spice_path.display().to_string(),
         svg_path: svg_path.display().to_string(),
     })
+}
+
+fn workspace_output_dir() -> PathBuf {
+    std::env::var_os("SPICE_STUDIO_OUTPUT_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("/workspace/spice-studio/output"))
 }
 
 fn main() {

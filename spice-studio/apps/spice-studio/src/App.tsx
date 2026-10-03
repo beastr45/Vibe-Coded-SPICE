@@ -36,6 +36,10 @@ const palette: Array<{
 ];
 
 const sourceTemplates = ["DC 5", "DC 0 AC 1", "SIN(0 1 1k)", "PULSE(0 5 0 1n 1n 1m 2m)"];
+const CONTROLLED_SOURCE_KINDS: Tool[] = ["vccs", "vcvs", "cccs", "ccvs"];
+const DEFAULT_VISIBLE_TRACE_COUNT = 4;
+const MAX_ACTIVE_TRACES = 6;
+const CHART_COLORS = ["#7bd3ff", "#89ffa0", "#ffcf6e", "#ff8fa3", "#c7a6ff", "#ffa94d"];
 
 const initialSymbols: SymbolRecord[] = [
   { id: "r1", kind: "resistor", x: 220, y: 200, reference: "R1", value: "1k", nodeA: "in", nodeB: "out", rotationDeg: 0 },
@@ -68,6 +72,14 @@ type InferredSchematic = {
 
 function snap(value: number) {
   return Math.round(value / GRID) * GRID;
+}
+
+function createUniqueId(prefix: string) {
+  return `${prefix}-${crypto.randomUUID()}`;
+}
+
+function selectInitialTraceKeys(series: Record<string, unknown> | undefined, limit = DEFAULT_VISIBLE_TRACE_COUNT) {
+  return Object.keys(series ?? {}).slice(0, limit);
 }
 
 function symbolUsesControlNodes(symbol: SymbolRecord) {
@@ -110,7 +122,7 @@ function App() {
       body.push(`<g data-id="${symbol.id}" transform="translate(${symbol.x},${symbol.y}) rotate(${symbol.rotationDeg})">`);
       body.push(`<line x1="-20" y1="0" x2="20" y2="0" stroke="#d6deff" stroke-width="3" />`);
       body.push(`<line x1="0" y1="-20" x2="0" y2="20" stroke="#d6deff" stroke-width="3" />`);
-      if (["vccs", "vcvs", "cccs", "ccvs"].includes(symbol.kind)) {
+      if (CONTROLLED_SOURCE_KINDS.includes(symbol.kind)) {
         body.push(`<circle cx="0" cy="0" r="16" fill="none" stroke="#ffcf6e" stroke-width="2" />`);
       }
       body.push(`<text x="28" y="-8" fill="#f8fafc" font-size="18">${symbol.reference}</text>`);
@@ -134,8 +146,8 @@ function App() {
       setSimulation(result);
       const nextTransient = findTransient(result.analyses);
       const nextAc = findAc(result.analyses);
-      setActiveTransientKeys(Object.keys(nextTransient?.traces ?? {}).slice(0, 4));
-      setActiveAcKeys(Object.keys(nextAc?.magnitude ?? {}).slice(0, 4));
+      setActiveTransientKeys(selectInitialTraceKeys(nextTransient?.traces));
+      setActiveAcKeys(selectInitialTraceKeys(nextAc?.magnitude));
       setStatus("Simulation complete");
     } catch (error) {
       setStatus(`Simulation failed: ${String(error)}`);
@@ -178,7 +190,7 @@ function App() {
         setPendingWireStart([x, y]);
         setStatus(`Wire start set at (${x}, ${y})`);
       } else {
-        const id = `wire-${Date.now()}`;
+        const id = createUniqueId("wire");
         setWires((current) => [...current, { id, net: `net_${current.length + 1}`, points: [pendingWireStart, [x, y]] }]);
         setSelectedWireId(id);
         setPendingWireStart(null);
@@ -200,7 +212,7 @@ function App() {
     if (!item || kind === "select" || kind === "wire") return;
     const index = symbols.filter((symbol) => symbol.kind === kind).length + 1;
     const prefix = item.reference.replace("?", "") || kind[0].toUpperCase();
-    const id = `${kind}-${Date.now()}`;
+    const id = createUniqueId(kind);
     setSymbols((current) => [
       ...current,
       {
@@ -345,7 +357,7 @@ function App() {
               >
                 <line x1={-20} y1={0} x2={20} y2={0} strokeWidth={3} />
                 <line x1={0} y1={-20} x2={0} y2={20} strokeWidth={3} />
-                {(["vccs", "vcvs", "cccs", "ccvs"] as Tool[]).includes(symbol.kind) && (
+                {CONTROLLED_SOURCE_KINDS.includes(symbol.kind) && (
                   <circle cx={0} cy={0} r={16} className="control-source-ring" />
                 )}
                 <text x={28} y={-8}>{symbol.reference}</text>
@@ -633,7 +645,9 @@ function findAc(analyses: AnalysisResult[]): AcResult | null {
 }
 
 function toggleKey(active: string[], key: string) {
-  return active.includes(key) ? active.filter((item) => item !== key) : [...active, key].slice(-6);
+  return active.includes(key)
+    ? active.filter((item) => item !== key)
+    : [...active, key].slice(-MAX_ACTIVE_TRACES);
 }
 
 function TraceSelector({
@@ -692,7 +706,14 @@ function WaveformChart({
   const yMax = Math.max(...allValues);
   const xMinRaw = logX ? Math.max(Math.min(...x), 1e-12) : Math.min(...x);
   const xMaxRaw = Math.max(...x);
-  const colors = ["#7bd3ff", "#89ffa0", "#ffcf6e", "#ff8fa3", "#c7a6ff", "#ffa94d"];
+  const scaledX = x.map((value) => {
+    if (logX) {
+      const min = Math.log10(xMinRaw);
+      const max = Math.log10(xMaxRaw);
+      return pad + ((Math.log10(Math.max(value, 1e-12)) - min) / (max - min || 1)) * (width - pad * 2);
+    }
+    return pad + ((value - xMinRaw) / (xMaxRaw - xMinRaw || 1)) * (width - pad * 2);
+  });
 
   const xScale = (value: number) => {
     if (logX) {
@@ -714,8 +735,8 @@ function WaveformChart({
   function nearestIndex(svgX: number) {
     let bestIndex = 0;
     let bestDistance = Number.POSITIVE_INFINITY;
-    x.forEach((value, index) => {
-      const distance = Math.abs(xScale(value) - svgX);
+    scaledX.forEach((position, index) => {
+      const distance = Math.abs(position - svgX);
       if (distance < bestDistance) {
         bestDistance = distance;
         bestIndex = index;
@@ -751,9 +772,9 @@ function WaveformChart({
         <line x1={pad} y1={pad} x2={pad} y2={height - pad} stroke="#41546b" />
         {entries.map(([name, values], index) => {
           const points = values
-            .map((value, idx) => `${xScale(x[idx] ?? x[x.length - 1])},${yScale(value)}`)
+            .map((value, idx) => `${scaledX[idx] ?? scaledX[scaledX.length - 1]},${yScale(value)}`)
             .join(" ");
-          return <polyline key={name} points={points} fill="none" stroke={colors[index % colors.length]} strokeWidth={2} />;
+          return <polyline key={name} points={points} fill="none" stroke={CHART_COLORS[index % CHART_COLORS.length]} strokeWidth={2} />;
         })}
         {cursorAX !== null ? (
           <line x1={cursorAX} y1={pad} x2={cursorAX} y2={height - pad} className="cursor-line cursor-a-line" />
@@ -770,7 +791,7 @@ function WaveformChart({
           {deltaX !== null ? <strong>Δx = {deltaX.toPrecision(5)}</strong> : null}
           {deltaFrequency !== null ? <strong>1/Δx = {deltaFrequency.toPrecision(5)}</strong> : null}
           {entries.map(([name, values], index) => (
-            <span key={name} className="cursor-series" style={{ color: colors[index % colors.length] }}>
+            <span key={name} className="cursor-series" style={{ color: CHART_COLORS[index % CHART_COLORS.length] }}>
               <span>{name} A: {values[cursorAIndex]?.toPrecision(5)}</span>
               {cursorBIndex !== null ? <span>{name} B: {values[cursorBIndex]?.toPrecision(5)}</span> : null}
               {cursorBIndex !== null ? (
@@ -786,11 +807,11 @@ function WaveformChart({
           ))}
         </div>
       ) : null}
-      <div className="legend">
-        {entries.map(([name], index) => (
-          <span key={name} style={{ color: colors[index % colors.length] }}>{name}</span>
-        ))}
-      </div>
+        <div className="legend">
+          {entries.map(([name], index) => (
+          <span key={name} style={{ color: CHART_COLORS[index % CHART_COLORS.length] }}>{name}</span>
+          ))}
+        </div>
     </div>
   );
 }

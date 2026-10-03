@@ -3,6 +3,9 @@ use std::collections::BTreeMap;
 use anyhow::{anyhow, bail, Context, Result};
 use serde::{Deserialize, Serialize};
 
+const DEFAULT_DIODE_MODEL_NAME: &str = "DEFAULT_DIODE";
+const DEFAULT_NMOS_MODEL_NAME: &str = "DEFAULT_NMOS";
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Netlist {
     pub title: String,
@@ -116,7 +119,7 @@ pub struct MosModel {
 impl Default for MosModel {
     fn default() -> Self {
         Self {
-            name: "DEFAULT_NMOS".to_string(),
+            name: DEFAULT_NMOS_MODEL_NAME.to_string(),
             pmos: false,
             threshold: 1.0,
             transconductance: 1e-3,
@@ -128,7 +131,7 @@ impl Default for MosModel {
 impl Default for DiodeModel {
     fn default() -> Self {
         Self {
-            name: "DEFAULT_DIODE".to_string(),
+            name: DEFAULT_DIODE_MODEL_NAME.to_string(),
             saturation_current: 1e-14,
             emission_coefficient: 1.0,
         }
@@ -270,15 +273,16 @@ struct SubcircuitDefinition {
     body: Vec<String>,
 }
 
+/// Parse a SPICE-like input string into a typed circuit description.
 pub fn parse_netlist(input: &str) -> Result<Netlist> {
     let (title, expanded_lines) = preprocess_netlist(input)?;
     let mut circuit = Circuit::default();
     circuit
         .models
-        .insert("DEFAULT_DIODE".to_string(), DiodeModel::default());
+        .insert(DEFAULT_DIODE_MODEL_NAME.to_string(), DiodeModel::default());
     circuit
         .mos_models
-        .insert("DEFAULT_NMOS".to_string(), MosModel::default());
+        .insert(DEFAULT_NMOS_MODEL_NAME.to_string(), MosModel::default());
     let mut analyses = Vec::new();
 
     for (line_no, line) in expanded_lines.iter().enumerate() {
@@ -327,7 +331,7 @@ fn preprocess_netlist(input: &str) -> Result<(String, Vec<String>)> {
         }
 
         if let Some(subckt) = &mut current_subckt {
-            if line.to_ascii_uppercase().starts_with(".ENDS") {
+            if starts_with_keyword(line, ".ENDS") {
                 let finished = current_subckt.take().expect("subckt exists");
                 subcircuits.insert(finished.name.clone(), finished);
             } else {
@@ -336,7 +340,7 @@ fn preprocess_netlist(input: &str) -> Result<(String, Vec<String>)> {
             continue;
         }
 
-        if line.to_ascii_uppercase().starts_with(".SUBCKT") {
+        if starts_with_keyword(line, ".SUBCKT") {
             let tokens = tokenize(line);
             let name = tokens.get(1).cloned().context(".subckt missing name")?;
             let pins = tokens[2..].to_vec();
@@ -582,7 +586,7 @@ fn parse_element_tokens(tokens: &[String], line_no: usize) -> Result<Element> {
             model: tokens
                 .get(3)
                 .cloned()
-                .unwrap_or_else(|| "DEFAULT_DIODE".to_string()),
+                .unwrap_or_else(|| DEFAULT_DIODE_MODEL_NAME.to_string()),
         }),
         'M' => Ok(Element::Mosfet {
             name,
@@ -631,7 +635,10 @@ fn tokenize(line: &str) -> Vec<String> {
 
 fn parse_optional_ic(tokens: &[String]) -> Result<Option<f64>> {
     for token in tokens {
-        if let Some(value) = token.strip_prefix("IC=") {
+        if let Some(value) = token
+            .strip_prefix("IC=")
+            .or_else(|| token.strip_prefix("ic="))
+        {
             return Ok(Some(parse_number(value)?));
         }
     }
@@ -876,4 +883,10 @@ pub fn parse_number(token: &str) -> Result<f64> {
 
 fn is_ground_name(name: &str) -> bool {
     matches!(name, "0" | "gnd" | "GND")
+}
+
+fn starts_with_keyword(line: &str, keyword: &str) -> bool {
+    line.get(..keyword.len())
+        .map(|prefix| prefix.eq_ignore_ascii_case(keyword))
+        .unwrap_or(false)
 }
